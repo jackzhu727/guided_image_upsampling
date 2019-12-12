@@ -21,11 +21,11 @@ print(opt)
 
 
 if opt.model == 'FDKN':
-    net = FDKN(kernel_size=opt.k, filter_size=opt.d, residual=True).cuda()
+    net = FDKN(kernel_size=opt.k, filter_size=opt.d, residual=True)
 elif opt.model == 'DKN':
-    net = DKN(kernel_size=opt.k, filter_size=opt.d, residual=True).cuda()
+    net = DKN(kernel_size=opt.k, filter_size=opt.d, residual=True)
 
-net.load_state_dict(torch.load(opt.parameter))
+net.load_state_dict(torch.load(opt.parameter, map_location=torch.device('cpu')))
 net.eval()
 print('parameter \"%s\" has loaded'%opt.parameter)
 
@@ -34,12 +34,16 @@ rgb = cv2.imread(opt.rgb)
 h, w = rgb.shape[:2]
 lr = cv2.imread(opt.depth, cv2.IMREAD_GRAYSCALE)
 lr = np.array(Image.fromarray(lr).resize((w, h), Image.BICUBIC))
+data_transform = transforms.Compose([
+    transforms.ToTensor()
+])
 
-images = [transforms(np.expand_dims(x,2)).float() for x in crop_img(rgb)]
-targets = [transforms(np.expand_dims(x,2)).float() for x in crop_img(lr)]
+images = [data_transform(x).float().unsqueeze(0) for x in crop_img(rgb)]
+targets = [data_transform(np.expand_dims(x,2)).float().unsqueeze(0) for x in crop_img(lr)]
 
 outputs = []
 for idx in range(len(images)):
     with torch.no_grad():
-        outputs = net((images[idx], targets[idx])).cpu().numpy()[0, 0]
+        outputs.append(net((images[idx], targets[idx])).cpu().numpy()[0,0])
 cv2.imwrite(opt.output, merge_img(outputs)*255)
+print('Job Complete')
